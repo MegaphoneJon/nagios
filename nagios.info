@@ -1,3 +1,2 @@
-; $Id$
 name = Nagios monitoring
 description = Exposes a page that Nagios can monitor

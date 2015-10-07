@@ -512,14 +512,12 @@ function nagios_check_watchdog() {
       continue;
     }
     if ($nagios_severity > $severity) $severity = $nagios_severity;
-    $message = "type: $row[type] $row[message]";
-    
-    //@TODO Untangle l(truncate_utf8(_dblog_format_message($dblog), 56, TRUE, TRUE), 'admin/reports/event/'. $dblog->wid, array('html' => TRUE)) and use it here
+
     $variables = unserialize($row['variables']);
-    foreach($variables as $key => $value){
-      $message = str_replace("%$key", $value, $message);
+    if (!empty($variables) && is_array($variables)) {
+      $message = 'type: '  . $row['type'] . strtr($row['message'], $variables);
     }
-    
+
     $descriptions[] = $message;
     
   }

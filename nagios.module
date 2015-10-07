@@ -175,9 +175,10 @@ function nagios_status_page() {
   $module = array_shift($args);
   // ID to run checks for.
   $id = array_shift($args);
-  
-  header("Pragma: no-cache");
-  header("Expires: 0");
+
+  drupal_set_header('Cache-Control: no-cache');
+  drupal_set_header('Pragma: no-cache');
+  drupal_set_header('Expires: -1');
 
   $codes = nagios_status();
 

@@ -248,29 +248,36 @@ function nagios_status_page() {
             $key == 'ADMIN' &&
             $value['text'] == 'Module and theme update status'
             ) {
+            module_load_include('inc', 'update', 'update.compare');
             $tmp_projects = update_calculate_project_data(update_get_projects());
+            $nagios_ignored_modules = variable_get('nagios_ignored_modules', array());
+            $nagios_ignored_themes = variable_get('nagios_ignored_themes', array());
+            $nagios_ignored_projects = $nagios_ignored_modules + $nagios_ignored_themes;
             $outdated_count = 0;
+            $tmp_modules = '';
             foreach ($tmp_projects as $projkey => $projval) {
-              if ($projval['status'] < UPDATE_CURRENT && $projval['status'] >= UPDATE_NOT_SECURE) {
-                switch ($projval['status']) {
-                  case UPDATE_NOT_SECURE:
-                    $tmp_projstatus = t('NOT SECURE');
-                    break;
-                  case UPDATE_REVOKED:
-                    $tmp_projstatus = t('REVOKED');
-                    break;
-                  case UPDATE_NOT_SUPPORTED:
-                    $tmp_projstatus = t('NOT SUPPORTED');
-                    break;
-                  case UPDATE_NOT_CURRENT:
-                    $tmp_projstatus = t('NOT CURRENT');
-                    break;
-                  default:
-                    $tmp_projstatus = $projval['status'];
-                }
+              if (!isset($nagios_ignored_projects[$projkey])) {
+                if ($projval['status'] < UPDATE_CURRENT && $projval['status'] >= UPDATE_NOT_SECURE) {
+                  switch ($projval['status']) {
+                    case UPDATE_NOT_SECURE:
+                      $tmp_projstatus = t('NOT SECURE');
+                      break;
+                    case UPDATE_REVOKED:
+                      $tmp_projstatus = t('REVOKED');
+                      break;
+                    case UPDATE_NOT_SUPPORTED:
+                      $tmp_projstatus = t('NOT SUPPORTED');
+                      break;
+                    case UPDATE_NOT_CURRENT:
+                      $tmp_projstatus = t('NOT CURRENT');
+                      break;
+                    default:
+                      $tmp_projstatus = $projval['status'];
+                  }
 
-                $tmp_modules .= ' ' . $projkey . ':' . $tmp_projstatus;
-                $outdated_count++;
+                  $tmp_modules .= ' ' . $projkey . ':' . $tmp_projstatus;
+                  $outdated_count++;
+                }
               }
             }
             if ($outdated_count > 0) {
@@ -291,8 +298,9 @@ function nagios_status_page() {
 
   $output .= implode(', ', $output_state) . ' | ' . implode(';', $output_perf) . "\n";
 
-  // Print the output, so we test the theme
-  print theme('page', $output);
+  // Output the status page directly with no theming for speed.
+  // If people want a themed status page they can write their own and alter the callback in admin.
+  echo $output;
 
   // Exit early so we do not cache the data, nor do we wrap the result in a theme
   exit();
@@ -391,26 +399,102 @@ function nagios_nagios() {
 function nagios_check_requirements() {
   // Load .install files
   include_once './includes/install.inc';
+  module_load_include('inc', 'update', 'update.compare');
+
   drupal_load_updates();
 
   // Get the run-time requirements and status information.
-  $reqs = module_invoke_all('requirements', 'runtime');
+
+  // module_invoke_all('requirements', 'runtime') returns an array that isn't
+  // keyed by the module name, eg we might get a key 'ctools_css_cache'.
+  // We have no way of knowing which module set this, and we can't guess based
+  // on the name, as removing everything that begins with 'ctools_' might remove
+  // data from other ctools sub-modules that we want to still monitor.
+  // The only safe way is to use module_invoke, calling each module in turn.
+
+  $project_data = update_get_projects();
+  $nagios_ignored_modules = variable_get('nagios_ignored_modules', array());
+  $nagios_ignored_themes = variable_get('nagios_ignored_themes', array());
+  $nagios_ignored_projects = $nagios_ignored_modules + $nagios_ignored_themes;
+
+  $enabled_modules = array();
+
+  foreach ($project_data as $project) {
+    foreach($project['includes'] as $key => $val) {
+      if (!isset($nagios_ignored_projects[$key])) {
+        $enabled_modules[] = $key;
+      }
+    }
+  }
+
+  // Copied from update_requirements(). Get available update data for projects.
+  $data = array();
+  // TODO: The TRUE param should be made configurable when writing a drush
+  // command, so we don't rely on cached data.
+  if ($available = update_get_available(TRUE)) {
+    module_load_include('inc', 'update', 'update.compare');
+    $data = update_calculate_project_data($available);
+  }
+  // Remove from the update data array the projects ignored.
+  foreach ($nagios_ignored_projects as $key => $value) {
+    unset($data[$key]);
+  }
+
+  // Cycle through enabled modules for requirements checks.
+  $reqs = array();
+  $core_modules = array_keys($project_data['drupal']['includes']);
+  foreach ($enabled_modules as $module_name) {
+
+    $requirements_data = module_invoke($module_name, 'requirements', 'runtime');
+    if (count($requirements_data)) {
+      // Intercept the Update Status module to respect our Ignore behaviour.
+      // Note, if $data is empty then there's no available update data and Update Status will handle that for us.
+      if ($module_name == 'update' && !empty($data)) {
+        // Don't want the 'update_contrib' section reported by 'update' module,
+        // because that one contains *ALL* modules, even the ones ignored by
+        // nagios module.
+        unset($requirements_data['update_contrib']);
+        // Now we need to loop through all modules again to reset 'update_contrib'.
+        foreach ($enabled_modules as $module_name) {
+          // Double check we're not processing a core module.
+          if (!in_array($module_name, array_keys($project_data['drupal']['includes']))) {
+            // If the module is a sub-module (eg views_ui) then we need to set the status key.
+            // Without this,  _update_requirement_check() will return severity = 2.
+            if (isset($data[$module_name]['status']) && is_numeric($data[$module_name]['status'])) {
+              // Within this clause, only contrib modules are processed. Get update
+              // status for the current one, and store data as it would be left
+              // by update_requirements() function.
+              $contrib_req = _update_requirement_check($data[$module_name], 'contrib');
+              $contrib_req['name'] = $module_name;
+              // If module up to date, set a severity of -1 for sorting purposes.
+              if (!isset($contrib_req['severity'])) {
+                $contrib_req['severity'] = -1;
+              }
+              // Build an array of required contrib updates.
+              if ($contrib_req) {
+                $module_data[] = $contrib_req;
+              }
+            }
+          }
+        }
+        // Sort our finished array by severity so we can set Nagios status accordingly.
+        usort($module_data, '_nagios_updates_sort_by_severity');
+        // Add the 'worst case' to requirements.
+        $requirements_data['update_contrib'] = array_pop($module_data);
+      }
+      $reqs += $requirements_data;
+    }
+  }
 
   // Check the requirements as to the most severe status
+  $descriptions = array();
   $severity = REQUIREMENT_OK;
   $min_severity = variable_get('nagios_min_report_severity', NAGIOS_STATUS_WARNING);
   foreach ($reqs as $key => $requirement) {
     if (isset($requirement['severity'])) {
-      // Ignore update_core warning if update cache has expired and nagios_cron_duration has not passed by yet
-      if ($key == 'update_core' && $requirement['severity'] == REQUIREMENT_WARNING && $requirement['reason'] == UPDATE_UNKNOWN) {
-        $grace = 60 * variable_get('nagios_cron_duration', 60);
-        $expire = db_result(db_query("SELECT expire FROM {cache_update} WHERE cid = '%s'", 'update_available_releases'));
-        if ($expire && time() < ($expire + $grace)) {
-          // Set the severity/desc to what was previously set - updates are currently running, and we're in an unknown state.
-          $severity = cache_get('nagios_prev_severity');
-          $descriptions = cache_get('nagios_prev_desc');
-          continue;
-        }
+      // Ignore update_core warning if update check is pending
+      if (($key == 'update_core' || $key == 'update_contrib') && $requirement['severity'] == REQUIREMENT_ERROR && $requirement['reason'] == UPDATE_FETCH_PENDING) {
+        continue;
       }
       if ($requirement['severity'] >= $min_severity) {
         if ($requirement['severity'] > $severity) {
@@ -427,12 +511,8 @@ function nagios_check_requirements() {
     $desc = join(', ', $descriptions);
   }
 
-  // Cache the current severity and descriptions - we may need to remember them if updates are running.
-  cache_set('nagios_prev_severity', $severity);
-  cache_set('nagios_prev_desc', $descriptions);
-
   // Create a status to pass back, and a text description too
-  switch($severity) {
+  switch ($severity) {
     case REQUIREMENT_OK:
     case REQUIREMENT_INFO:
       $data = array(
@@ -443,23 +523,23 @@ function nagios_check_requirements() {
       break;
     case REQUIREMENT_WARNING:
       $data = array(
-        'status' => NAGIOS_STATUS_WARNING, 
-        'type'   => 'state',
-        'text'   => t('@desc', array('@desc' => $desc)),
+        'status' => NAGIOS_STATUS_WARNING,
+        'type' => 'state',
+        'text' => t('@desc', array('@desc' => $desc)),
       );
       break;
     case REQUIREMENT_ERROR:
       $data = array(
-        'status' => NAGIOS_STATUS_CRITICAL, 
-        'type'   => 'state',
-        'text'   => t('@desc', array('@desc' => $desc)),
+        'status' => NAGIOS_STATUS_CRITICAL,
+        'type' => 'state',
+        'text' => t('@desc', array('@desc' => $desc)),
       );
       break;
     default:
       $data = array(
-        'status' => NAGIOS_STATUS_UNKNOWN, 
-        'type'   => 'state',
-        'text'   => t('severity is @severity',array('@severity' => $severity)),
+        'status' => NAGIOS_STATUS_UNKNOWN,
+        'type' => 'state',
+        'text' => t('severity is @severity', array('@severity' => $severity)),
       );
       break;
   }
@@ -471,7 +551,7 @@ function nagios_check_requirements() {
 }
 
 /**
- * Check Drupal {watchdog} table recent entries
+ * Check Drupal {watchdog} table recent entries.
  *
  * @return Array
  */
@@ -481,17 +561,29 @@ function nagios_check_watchdog() {
   //@TODO Do this more the Drupal Way, whatever that might be
   //@TODO Allow multi-value 'type' and/or 'severity' inputs for filtering
   //@TODO Allow datetime ranges
-  $limit = 50;
-  $offset = 0;
-  $query = "SELECT wid, uid, type, severity, message, variables, link, location, hostname, timestamp FROM {watchdog} ORDER BY timestamp DESC LIMIT %d OFFSET %d";
-  $result = db_query($query, $limit, $offset);
-  if (!$result){
+
+  // Get watchdog result limit.
+  $limit = variable_get('limit_watchdog_results', 50);
+
+  // Check if we are limiting to only new logs since last check.
+  $limit_watchdog_timestamp = 0;
+  $limit_watchdog = variable_get('limit_watchdog_display', FALSE);
+  if (!empty($limit_watchdog)) {
+    // Get timestamp of the last watchdog entry retrieved.
+    $limit_watchdog_timestamp = variable_get('limit_watchdog_timestamp', FALSE);
+  }
+
+  // Execute query.
+  $result = db_query('SELECT * FROM {watchdog} WHERE timestamp > %d ORDER BY timestamp DESC LIMIT %d', $limit_watchdog_timestamp, $limit);
+
+  if (!$result) {
     return array(
       'status' => NAGIOS_STATUS_UNKNOWN,
       'type' => 'state',
       'text' => t('Unable to SELECT FROM {watchdog}')
     );
   }
+
   //RFC3164/Watchdog has 8 levels. Nagios module has 3 (plus UNKNOWN). This maps one to the other.
   $severity_translation = array(
     //watchdog => nagios
@@ -499,34 +591,70 @@ function nagios_check_watchdog() {
     WATCHDOG_INFO => NAGIOS_STATUS_OK,
     WATCHDOG_NOTICE => NAGIOS_STATUS_OK,
     WATCHDOG_WARNING => NAGIOS_STATUS_WARNING,
-    WATCHDOG_ERROR => NAGIOS_STATUS_ERROR,
-    WATCHDOG_CRITICAL => NAGIOS_STATUS_ERROR,
-    WATCHDOG_ALERT => NAGIOS_STATUS_ERROR,
-    WATCHDOG_EMERG => NAGIOS_STATUS_ERROR
+    WATCHDOG_ERROR => NAGIOS_STATUS_CRITICAL,
+    WATCHDOG_CRITICAL => NAGIOS_STATUS_CRITICAL,
+    WATCHDOG_ALERT => NAGIOS_STATUS_CRITICAL,
+    WATCHDOG_EMERG => NAGIOS_STATUS_CRITICAL
   );
+
   $severity = NAGIOS_STATUS_OK; //max this across the result set
   $min_severity = variable_get('nagios_min_report_severity', NAGIOS_STATUS_WARNING);
+  $messages = array();
   $descriptions = array();
-  while ($row = db_fetch_array($result)){
-    $nagios_severity = $severity_translation[ $row['severity'] ];
-    if ($nagios_severity < $min_severity){
+  $count = 0;
+  while ($row = db_fetch_array($result)) {
+    // Set timestamp of the first watchdog error for use when restricting logs to only new entries.
+    if ($count == 0) {
+      $limit_watchdog_timestamp = variable_set('limit_watchdog_timestamp', $row['timestamp']);
+      $count++;
+    }
+
+    // Get severity of log entry.
+    $nagios_severity = $severity_translation[$row['severity']];
+
+    // Only continue if severity is greater then the min severity set.
+    if ($nagios_severity < $min_severity) {
       continue;
     }
-    if ($nagios_severity > $severity) $severity = $nagios_severity;
 
-    $variables = unserialize($row['variables']);
-    if (!empty($variables) && is_array($variables)) {
-      $message = 'type: '  . $row['type'] . strtr($row['message'], $variables);
+    // If the severity is greater then our current severity level, set it it to new level.
+    if ($nagios_severity > $severity) {
+      $severity = $nagios_severity;
     }
 
+    // Create error message.
+    $message = "$row[type] $row[message]";
+    //@TODO Untangle l(truncate_utf8(_dblog_format_message($dblog), 56, TRUE, TRUE), 'admin/reports/event/'. $dblog->wid, array('html' => TRUE)) and use it here
+    $variables = unserialize($row['variables']);
+    if (is_array($variables)){
+      foreach($variables as $key => $value){
+        $message = str_replace("$key", $value, $message);
+      }
+    }
+
+    // Add message to messages array only if there isn't already an identical entry.
+    if (!in_array($message, $messages)) {
+      $messages[] = $message;
+    }
+    else {
+      // We only want to show each message once so continue.
+      continue;
+    }
+
+    // Prepend the timestamp onto the front of the message.
+    $message = date('Y-m-d H:i:s', $row['timestamp']) . " " . $message;
+
+    // Add message to descriptions array.
     $descriptions[] = $message;
-    
+
   }
+
+  // Join all descriptions together into a string.
   $desc = join(', ', $descriptions);
-  
+
   //why is an extra array wrapped around here?
   return array(
-    'key' => 'ADMIN',
+    'key' => 'WATCHDOG',
     'data' => array(
       'status' => $severity,
       'type' => 'state',
@@ -702,4 +830,17 @@ function nagios_check_themes() {
     'key' => 'THM',
     'data' => $data,
   );
+}
+
+/**
+ * Helper function to sort modules by severity with usort().
+ */
+function _nagios_updates_sort_by_severity($a, $b) {
+  if (isset($a['severity']) && isset($b['severity'])) {
+    if ($a['severity'] == $b['severity']) {
+      return 0;
+    }
+    return ($a['severity'] < $b['severity']) ? -1 : 1;
+  }
+  return 0;
 }

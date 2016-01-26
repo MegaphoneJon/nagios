@@ -93,7 +93,7 @@ function nagios_check($module, $check) {
  * A string containing:
  * - 'all' to list all updates.
  * - 'security' to list security updates only.
- * 
+ *
  * @param integer $nagios_flag
  * Send 'nagios' to prefix the output with a Nagios string.
  */
@@ -101,7 +101,7 @@ function drush_nagios_updates($update_type = NULL, $nagios_flag = NULL) {
   $flag_insecure = FALSE;
   $exit_status = NULL;
   $message = '';
-  if ($available = update_get_available(TRUE)) {
+  if ($available = _nagios_update_get_available(TRUE)) {
     module_load_include('inc', 'update', 'update.compare');
     $data = update_calculate_project_data($available);
     // Unset any data referencing projects we're not interested in.

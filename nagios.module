@@ -317,7 +317,7 @@ function nagios_status_page() {
             $key == 'ADMIN' &&
             $value['text'] == 'Module and theme update status'
             ) {
-            $tmp_projects = update_calculate_project_data(update_get_projects());
+            $tmp_projects = update_calculate_project_data(_nagios_update_get_projects());
             $nagios_ignored_modules = variable_get('nagios_ignored_modules', array());
             $nagios_ignored_themes = variable_get('nagios_ignored_themes', array());
             $nagios_ignored_projects = $nagios_ignored_modules + $nagios_ignored_themes;
@@ -466,7 +466,7 @@ function nagios_form_system_modules_alter(&$form, &$form_state, $form_id) {
   }
 
   $nagios_ignored_modules = variable_get('nagios_ignored_modules', array());
-  $projects_data = update_get_projects();
+  $projects_data = _nagios_update_get_projects();
   foreach ($form['modules'] as $package_name => &$package) {
     if ($package_name[0] != '#') {
       foreach ($package as $module_name => &$module) {
@@ -530,7 +530,7 @@ function nagios_form_system_theme_settings_alter(&$form, &$form_state, $form_id)
     $nagios_ignored_themes = variable_get('nagios_ignored_themes', array());
 
     // Check to see if the theme is provided by core, or if it's contrib/custom.
-    $projects_data = update_get_projects();
+    $projects_data = _nagios_update_get_projects();
     if (array_key_exists($theme_name, $projects_data)) {
       // This is a settings page for a non-core theme, so add the checkbox.
 
@@ -613,7 +613,7 @@ function nagios_check_requirements() {
   // data from other ctools sub-modules that we want to still monitor.
   // The only safe way is to use module_invoke, calling each module in turn.
 
-  $project_data = update_get_projects();
+  $project_data = _nagios_update_get_projects();
   $nagios_ignored_modules = variable_get('nagios_ignored_modules', array());
   $nagios_ignored_themes = variable_get('nagios_ignored_themes', array());
   $nagios_ignored_projects = $nagios_ignored_modules + $nagios_ignored_themes;
@@ -632,9 +632,8 @@ function nagios_check_requirements() {
   $data = array();
   // TODO: The TRUE param should be made configurable when writing a drush
   // command, so we don't rely on cached data.
-  if ($available = update_get_available(TRUE)) {
-    module_load_include('inc', 'update', 'update.compare');
-    $data = update_calculate_project_data($available);
+  if ($available = _nagios_update_get_available(TRUE)) {
+    $data = _nagios_update_calculate_project_data($available);
   }
   // Remove from the update data array the projects ignored.
   foreach ($nagios_ignored_projects as $key => $value) {
@@ -1178,4 +1177,39 @@ function _nagios_updates_sort_by_severity($a, $b) {
     return ($a['severity'] < $b['severity']) ? -1 : 1;
   }
   return 0;
+}
+
+/**
+ * Wrapper function to ensure update_get_projects() can always be accessed,
+ * even if the core update module is disabled.
+ */
+function _nagios_update_get_projects() {
+  if (!module_exists('update')) {
+    module_load_include('inc', 'update', 'update.compare');
+    // Also need to load update.module for _update_cache_clear().
+    drupal_load('module', 'update');
+  }
+  return update_get_projects();
+}
+
+/**
+ * Wrapper function to ensure update_get_available() can always be accessed,
+ * even if the core update module is disabled.
+ */
+function _nagios_update_get_available($refresh = FALSE) {
+  if (!module_exists('update')) {
+    drupal_load('module', 'update');
+  }
+  return update_get_available($refresh);
+}
+
+/**
+ * Wrapper function to ensure update_calculate_project_data() can always be
+ * accessed, even if the core update module is disabled.
+ */
+function _nagios_update_calculate_project_data($available = array()) {
+  if (!module_exists('update')) {
+    module_load_include('inc', 'update', 'update.compare');
+  }
+  return update_calculate_project_data($available);
 }

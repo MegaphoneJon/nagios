@@ -363,7 +363,7 @@ function nagios_status_page() {
     }
   }
 
-  $output .= implode(', ', $output_state) . ' | ' . implode(';', $output_perf) . "\n";
+  $output .= implode(', ', $output_state) . ' | ' . implode('; ', $output_perf) . "\n";
 
   // Output the status page directly with no theming for speed.
   // If people want a themed status page they can write their own and alter the callback in admin.

@@ -147,6 +147,8 @@ function drush_nagios_updates($update_type = NULL, $nagios_flag = NULL) {
       }
       else {
         $message = implode(' ', $module_list);
+        // Set $exit_status to zero so any dependent scripts do not get a false failure.
+        $exit_status = 0;
       }
     }
   }
@@ -154,7 +156,7 @@ function drush_nagios_updates($update_type = NULL, $nagios_flag = NULL) {
     $message = 'OK - No updates';
   }
   drush_set_context('DRUSH_EXECUTION_COMPLETED', TRUE);
-  if ($exit_status || $nagios_flag == 'nagios') {
+  if (!is_null($exit_status) || $nagios_flag == 'nagios') {
     drush_print($message);
   }
   exit($exit_status);

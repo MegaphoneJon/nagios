@@ -19,6 +19,8 @@ function nagios_uninstall() {
   variable_del('nagios_status_warning_value');
   variable_del('nagios_status_critical_value');
   variable_del('nagios_status_unknown_value');
+  variable_del('nagios_ignored_modules');
+  variable_del('nagios_limit_watchdog_timestamp');
 }
 
 /**
@@ -49,4 +51,12 @@ function nagios_update_7001() {
   if (variable_get('nagios_page_path', 'nagios') == 'nagios') {
     variable_set('nagios_page_path', 'nagios');
   }
+}
+
+/**
+ * Rename variable for watchdog limit so it is clearly from this module.
+ */
+function nagios_update_7002() {
+  variable_set('nagios_limit_watchdog_timestamp', variable_get('limit_watchdog_timestamp', FALSE));
+  variable_del('limit_watchdog_timestamp');
 }

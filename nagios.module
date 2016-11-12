@@ -710,10 +710,28 @@ function nagios_check_requirements() {
   $min_severity = variable_get('nagios_min_report_severity', NAGIOS_STATUS_WARNING);
   foreach ($reqs as $key => $requirement) {
     if (isset($requirement['severity'])) {
-      // Ignore update_core warning if update check is pending
-      if (($key == 'update_core' || $key == 'update_contrib') && $requirement['severity'] == REQUIREMENT_ERROR && $requirement['reason'] == UPDATE_FETCH_PENDING) {
-        continue;
+
+      // Once a day, the update_core cache expires. The update_core requirement severity is
+      // then REQUIREMENT_WARNING and the reason is UPDATE_UNKNOWN. In order to avoid an unnecessary
+      // nagios state change, calculate a grace time that lasts for one planned cron duration. During
+      // grace time, use the requirement info from cache.
+      if ($key == 'update_core' || $key == 'update_contrib') {
+        $grace_time = FALSE;
+        if ($requirement['severity'] == REQUIREMENT_WARNING && $requirement['reason'] == UPDATE_UNKNOWN) {
+          $grace_seconds = 60 * variable_get('nagios_cron_duration', 60);
+          $expire = db_result(db_query("SELECT expire FROM {cache_update} WHERE cid = '%s'", 'update_available_releases'));
+          if ($expire && time() < ($expire + $grace_seconds)) {
+            $grace_time = TRUE;
+          }
+        }
+        if ($grace_time) {
+          $requirement = cache_get('nagios_update_core_requirement');
+        }
+        else {
+          cache_set('nagios_update_core_requirement', $requirement);
+         }
       }
+
       if ($requirement['severity'] >= $min_severity) {
         if ($requirement['severity'] > $severity) {
           $severity = $requirement['severity'];

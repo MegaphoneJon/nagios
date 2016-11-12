@@ -1236,9 +1236,18 @@ function _nagios_update_get_projects() {
  */
 function _nagios_update_get_available($refresh = FALSE) {
   if (!module_exists('update')) {
-    drupal_load('module', 'update');
+    // update_get_available() relies on the update module to have been installed, not just the code to be available
+    if (db_table_exists('cache_update')) {
+      drupal_load('module', 'update');
+      return update_get_available($refresh);
+    }
+    else {
+      watchdog('nagios', t('The core update module was never installed so we cannot use update check features.'));
+    }
   }
-  return update_get_available($refresh);
+  else {
+    return update_get_available($refresh);
+  }
 }
 
 /**
@@ -1247,7 +1256,16 @@ function _nagios_update_get_available($refresh = FALSE) {
  */
 function _nagios_update_calculate_project_data($available = array()) {
   if (!module_exists('update')) {
-    module_load_include('inc', 'update', 'update.compare');
+    // update_calculate_project_data() relies on the update module to have been installed, not just the code to be available
+    if (db_table_exists('cache_update')) {
+      module_load_include('inc', 'update', 'update.compare');
+      return update_calculate_project_data($available);
+    }
+    else {
+      watchdog('nagios', t('The core update module was never installed so we cannot use update check features.'));
+    }
   }
-  return update_calculate_project_data($available);
+  else {
+    return update_calculate_project_data($available);
+  }
 }

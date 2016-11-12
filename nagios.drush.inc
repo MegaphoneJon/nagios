@@ -101,60 +101,69 @@ function drush_nagios_updates($update_type = NULL, $nagios_flag = NULL) {
   $flag_insecure = FALSE;
   $exit_status = NULL;
   $message = '';
-  if ($available = _nagios_update_get_available(TRUE)) {
-    module_load_include('inc', 'update', 'update.compare');
-    $data = update_calculate_project_data($available);
-    // Unset any data referencing projects we're not interested in.
-    $nagios_ignored_modules = variable_get('nagios_ignored_modules', array());
-    $nagios_ignored_themes = variable_get('nagios_ignored_themes', array());
-    $nagios_ignored_projects = $nagios_ignored_modules + $nagios_ignored_themes;
-    foreach ($nagios_ignored_projects as $key => $value) {
-      if ($value == TRUE && isset($data[$key])) {
-        unset($data[$key]);
-      }
-    }
-
-    $module_list = array();
-
-    $updates = nagios_updates($data);
-    if (count($updates)) {
-      foreach ($updates as $project_name => $update_info) {
-        // In any case we need to flag security updates.
-        if ($update_info['status'] == UPDATE_NOT_SECURE) {
-          $flag_insecure = TRUE;
-          $module_list[] = $project_name;
-        }
-        // If type is 'security' we don't want a full list.
-        elseif ($update_type && $update_type == 'all') {
-          $module_list[] = $project_name;
+  // Need to ensure the Update module was installed before continuing.
+  if (db_table_exists('cache_update')) {
+    if ($available = _nagios_update_get_available(TRUE)) {
+      module_load_include('inc', 'update', 'update.compare');
+      $data = update_calculate_project_data($available);
+      // Unset any data referencing projects we're not interested in.
+      $nagios_ignored_modules = variable_get('nagios_ignored_modules', array());
+      $nagios_ignored_themes = variable_get('nagios_ignored_themes', array());
+      $nagios_ignored_projects = $nagios_ignored_modules + $nagios_ignored_themes;
+      foreach ($nagios_ignored_projects as $key => $value) {
+        if ($value == TRUE && isset($data[$key])) {
+          unset($data[$key]);
         }
       }
-      if ($nagios_flag == 'nagios') {
-        if ($flag_insecure) {
-          // Returning the value didn't work in drush 5.x, so we print it instead.
-          $message = 'ADMIN CRITICAL - Updates required for: ' . implode(' ', $module_list);
-          $exit_status = 2;
+
+      $module_list = array();
+
+      $updates = nagios_updates($data);
+      if (count($updates)) {
+        foreach ($updates as $project_name => $update_info) {
+          // In any case we need to flag security updates.
+          if ($update_info['status'] == UPDATE_NOT_SECURE) {
+            $flag_insecure = TRUE;
+            $module_list[] = $project_name;
+          }
+          // If type is 'security' we don't want a full list.
+          elseif ($update_type && $update_type == 'all') {
+            $module_list[] = $project_name;
+          }
         }
-        else {
-          if (empty($module_list)) {
-            $message = 'ADMIN WARNING - Updates required, but no security updates.';
+        if ($nagios_flag == 'nagios') {
+          if ($flag_insecure) {
+            // Returning the value didn't work in drush 5.x, so we print it instead.
+            $message = 'ADMIN CRITICAL - Updates required for: ' . implode(' ', $module_list);
+            $exit_status = 2;
           }
           else {
-            $message = 'ADMIN WARNING - Updates required for: ' . implode(' ', $module_list);
+            if (empty($module_list)) {
+              $message = 'ADMIN WARNING - Updates required, but no security updates.';
+            }
+            else {
+              $message = 'ADMIN WARNING - Updates required for: ' . implode(' ', $module_list);
+            }
+            $exit_status = 1;
           }
-          $exit_status = 1;
+        }
+        else {
+          $message = implode(' ', $module_list);
+          // Set $exit_status to zero so any dependent scripts do not get a false failure.
+          $exit_status = 0;
         }
       }
-      else {
-        $message = implode(' ', $module_list);
-        // Set $exit_status to zero so any dependent scripts do not get a false failure.
-        $exit_status = 0;
-      }
+    }
+    if ($nagios_flag == 'nagios' && is_null($exit_status)) {
+      $message = 'OK - No updates';
     }
   }
-  if ($nagios_flag == 'nagios' && is_null($exit_status)) {
-    $message = 'OK - No updates';
+  else {
+    $message = 'The core update module was never installed so we cannot use update check features.';
+    // Set a warning, because someone is clearly explicitly trying to use this feature and cannot.
+    $exit_status = 1;
   }
+
   drush_set_context('DRUSH_EXECUTION_COMPLETED', TRUE);
   if (!is_null($exit_status) || $nagios_flag == 'nagios') {
     drush_print($message);

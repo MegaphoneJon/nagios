@@ -317,39 +317,45 @@ function nagios_status_page() {
             $key == 'ADMIN' &&
             $value['text'] == 'Module and theme update status'
             ) {
-            $tmp_projects = update_calculate_project_data(_nagios_update_get_projects());
-            $nagios_ignored_modules = variable_get('nagios_ignored_modules', array());
-            $nagios_ignored_themes = variable_get('nagios_ignored_themes', array());
-            $nagios_ignored_projects = $nagios_ignored_modules + $nagios_ignored_themes;
-            $outdated_count = 0;
-            $tmp_modules = '';
-            foreach ($tmp_projects as $projkey => $projval) {
-              if (!isset($nagios_ignored_projects[$projkey])) {
-                if ($projval['status'] < UPDATE_CURRENT && $projval['status'] >= UPDATE_NOT_SECURE) {
-                  switch ($projval['status']) {
-                    case UPDATE_NOT_SECURE:
-                      $tmp_projstatus = t('NOT SECURE');
-                      break;
-                    case UPDATE_REVOKED:
-                      $tmp_projstatus = t('REVOKED');
-                      break;
-                    case UPDATE_NOT_SUPPORTED:
-                      $tmp_projstatus = t('NOT SUPPORTED');
-                      break;
-                    case UPDATE_NOT_CURRENT:
-                      $tmp_projstatus = t('NOT CURRENT');
-                      break;
-                    default:
-                      $tmp_projstatus = $projval['status'];
+            // Need to ensure the Update module was installed before continuing.
+            if (db_table_exists('cache_update')) {
+              $tmp_projects = update_calculate_project_data(_nagios_update_get_projects());
+              $nagios_ignored_modules = variable_get('nagios_ignored_modules', array());
+              $nagios_ignored_themes = variable_get('nagios_ignored_themes', array());
+              $nagios_ignored_projects = $nagios_ignored_modules + $nagios_ignored_themes;
+              $outdated_count = 0;
+              $tmp_modules = '';
+              foreach ($tmp_projects as $projkey => $projval) {
+                if (!isset($nagios_ignored_projects[$projkey])) {
+                  if ($projval['status'] < UPDATE_CURRENT && $projval['status'] >= UPDATE_NOT_SECURE) {
+                    switch ($projval['status']) {
+                      case UPDATE_NOT_SECURE:
+                        $tmp_projstatus = t('NOT SECURE');
+                        break;
+                      case UPDATE_REVOKED:
+                        $tmp_projstatus = t('REVOKED');
+                        break;
+                      case UPDATE_NOT_SUPPORTED:
+                        $tmp_projstatus = t('NOT SUPPORTED');
+                        break;
+                      case UPDATE_NOT_CURRENT:
+                        $tmp_projstatus = t('NOT CURRENT');
+                        break;
+                      default:
+                        $tmp_projstatus = $projval['status'];
+                    }
+                    $tmp_modules .= ' ' . $projkey . ':' . $tmp_projstatus;
+                    $outdated_count++;
                   }
-                  $tmp_modules .= ' ' . $projkey . ':' . $tmp_projstatus;
-                  $outdated_count++;
                 }
               }
+              if ($outdated_count > 0) {
+                $tmp_modules = trim($tmp_modules);
+                $tmp_state .= " ($tmp_modules)";
+              }
             }
-            if ($outdated_count > 0) {
-              $tmp_modules = trim($tmp_modules);
-              $tmp_state .= " ($tmp_modules)";
+            else {
+              watchdog('nagios', t('The core update module was never installed so we cannot use update check features.'));
             }
           }
 
@@ -465,6 +471,12 @@ function nagios_form_system_modules_alter(&$form, &$form_state, $form_id) {
     return;
   }
 
+  // We need to abort if the Update module is not installed.
+  if (!db_table_exists('cache_update')) {
+    watchdog('nagios', t('The core update module was never installed so we cannot use update check features.'));
+    return;
+  }
+
   $nagios_ignored_modules = variable_get('nagios_ignored_modules', array());
   $projects_data = _nagios_update_get_projects();
   foreach ($form['modules'] as $package_name => &$package) {
@@ -520,6 +532,12 @@ function nagios_system_modules_form_submit(&$form, &$form_state) {
  */
 function nagios_form_system_theme_settings_alter(&$form, &$form_state, $form_id) {
   if (!user_access('administer nagios ignore') || isset($form['confirm'])) {
+    return;
+  }
+
+  // We need to abort if the Update module is not installed.
+  if (!db_table_exists('cache_update')) {
+    watchdog('nagios', t('The core update module was never installed so we cannot use update check features.'));
     return;
   }
 
@@ -591,7 +609,7 @@ function nagios_nagios() {
 }
 
 /**
- * Check is all Drupal requirenemts are satisfied.
+ * Check all Drupal requirements are satisfied.
  *
  * Calls hook_requirements on all modules to gather info.
  *
@@ -1184,12 +1202,32 @@ function _nagios_updates_sort_by_severity($a, $b) {
  * even if the core update module is disabled.
  */
 function _nagios_update_get_projects() {
-  if (!module_exists('update')) {
-    module_load_include('inc', 'update', 'update.compare');
-    // Also need to load update.module for _update_cache_clear().
-    drupal_load('module', 'update');
+  if (module_exists('update')) {
+    return update_get_projects();
   }
-  return update_get_projects();
+  else {
+    // We still need to make sure the update.compare file is available to call the
+    // _update_process_info_list(() function below.
+    module_load_include('inc', 'update', 'update.compare');
+    // This code is lifted directly from the core update module to avoid a dependency.
+    // Note: anything cache related has been pulled out.
+    // https://api.drupal.org/api/drupal/modules!update!update.compare.inc/function/update_get_projects/7.x
+    $projects = &drupal_static(__FUNCTION__, array());
+    if (empty($projects)) {
+      // Still empty, so we have to rebuild the cache.
+      $module_data = system_rebuild_module_data();
+      $theme_data = system_rebuild_theme_data();
+      _update_process_info_list($projects, $module_data, 'module', TRUE);
+      _update_process_info_list($projects, $theme_data, 'theme', TRUE);
+      if (variable_get('update_check_disabled', FALSE)) {
+        _update_process_info_list($projects, $module_data, 'module', FALSE);
+        _update_process_info_list($projects, $theme_data, 'theme', FALSE);
+      }
+      // Allow other modules to alter projects before fetching and comparing.
+      drupal_alter('update_projects', $projects);
+    }
+    return $projects;
+  }
 }
 
 /**

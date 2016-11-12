@@ -798,7 +798,7 @@ function nagios_check_watchdog() {
   $limit_watchdog = variable_get('limit_watchdog_display', FALSE);
   if (!empty($limit_watchdog)) {
     // Get timestamp of the last watchdog entry retrieved.
-    $limit_watchdog_timestamp = variable_get('limit_watchdog_timestamp', FALSE);
+    $limit_watchdog_timestamp = variable_get('nagios_limit_watchdog_timestamp', FALSE);
     if ($limit_watchdog_timestamp !== FALSE) {
       // Ensure we only get entries that are greater then the timestamp.
       $query->condition('timestamp', $limit_watchdog_timestamp,'>');
@@ -836,7 +836,7 @@ function nagios_check_watchdog() {
   while ($row = $result->fetchAssoc()) {
     // Set timestamp of the first watchdog error for use when restricting logs to only new entries.
     if ($count == 0) {
-      $limit_watchdog_timestamp = variable_set('limit_watchdog_timestamp', $row['timestamp']);
+      $limit_watchdog_timestamp = variable_set('nagios_limit_watchdog_timestamp', $row['timestamp']);
       $count++;
     }
 

@@ -44,7 +44,7 @@ function nagios_requirements($phase) {
       $requirements['nagios'] = array(
           'title' => t('Nagios module'),
           'value' => t('Update module not enabled'),
-          'description' => t('Update notifications are not enabled. Nagios cannot fully complete requirements checks withouth it. We recommend you enable the update manager module from the <a href="@url">module administration page</a>.', array('@url' => url('admin/modules'))),
+          'description' => t('Update notifications are not enabled. Nagios cannot fully complete requirements checks without it. We recommend you enable the update manager module from the <a href="@url">module administration page</a>.', array('@url' => url('admin/modules'))),
           'severity' => REQUIREMENT_WARNING,
       );
     }

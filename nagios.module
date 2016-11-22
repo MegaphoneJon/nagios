@@ -660,6 +660,7 @@ function nagios_check_requirements() {
 
   // Cycle through enabled modules for requirements checks.
   $reqs = array();
+  $module_data = array();
   $core_modules = array_keys($project_data['drupal']['includes']);
   foreach ($enabled_modules as $module_name) {
 
@@ -719,7 +720,7 @@ function nagios_check_requirements() {
         $grace_time = FALSE;
         if ($requirement['severity'] == REQUIREMENT_WARNING && $requirement['reason'] == UPDATE_UNKNOWN) {
           $grace_seconds = 60 * variable_get('nagios_cron_duration', 60);
-          $expire = db_result(db_query("SELECT expire FROM {cache_update} WHERE cid = '%s'", 'update_available_releases'));
+          $expire = db_query("SELECT expire FROM {cache_update} WHERE cid = :cid", array(':cid' => 'update_available_releases'))->fetchField();
           if ($expire && time() < ($expire + $grace_seconds)) {
             $grace_time = TRUE;
           }

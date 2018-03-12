@@ -1,5 +1,6 @@
 name = Nagios monitoring
+type = module
 description = Exposes a page that Nagios can monitor and drush hooks for NRPE.
-core = 7.x
+backdrop = 1.x
 package = "Monitoring"
 configure = admin/config/system/nagios

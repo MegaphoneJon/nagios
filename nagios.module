@@ -4,10 +4,10 @@
 // Copyright 2009 Khalid Baheyeldin http://2bits.com
 
 // Defines to be used by this modules and others that use its hook_nagios()
-define('NAGIOS_STATUS_OK',       variable_get('nagios_status_ok_value', 0));
-define('NAGIOS_STATUS_WARNING',  variable_get('nagios_status_warning_value', 1));
+define('NAGIOS_STATUS_OK', variable_get('nagios_status_ok_value', 0));
+define('NAGIOS_STATUS_WARNING', variable_get('nagios_status_warning_value', 1));
 define('NAGIOS_STATUS_CRITICAL', variable_get('nagios_status_critical_value', 2));
-define('NAGIOS_STATUS_UNKNOWN',  variable_get('nagios_status_unknown_value', 3));
+define('NAGIOS_STATUS_UNKNOWN', variable_get('nagios_status_unknown_value', 3));
 
 /**
  * Mapping of defines to text strings that Nagios understands
@@ -36,7 +36,7 @@ function nagios_functions() {
     'modules' => t('Check the number of modules for nagios performance data'),
     'themes' => t('Check the number of themes for nagios performance data'),
   );
-  if(module_exists('elysia_cron')) {
+  if (module_exists('elysia_cron')) {
     $functions['elysia_cron'] = t('Check whether elysia cron has been running regularly');
   }
   return $functions;
@@ -124,13 +124,13 @@ function nagios_settings($form, &$form_state) {
   );
   $form['nagios_status_page']['nagios_page_path'] = array(
     '#type' => 'textfield',
-    '#title' =>   t('Nagios page path'),
+    '#title' => t('Nagios page path'),
     '#description' => t('Enter the path for the Nagios HTTP status page. It must be a valid Drupal path.'),
     '#default_value' => variable_get('nagios_page_path', 'nagios-status'),
   );
   $form['nagios_status_page']['nagios_page_callback'] = array(
     '#type' => 'textfield',
-    '#title' =>   t('Nagios page callback'),
+    '#title' => t('Nagios page callback'),
     '#description' => t('Enter the name of the callback function to be used by the Nagios status page. Take care and be sure this function exists before clearing the menu cache!'),
     '#default_value' => variable_get('nagios_page_callback', 'nagios_status_page'),
   );
@@ -222,7 +222,13 @@ function nagios_settings($form, &$form_state) {
     }
   }
 
-  return system_settings_form($form);
+  $form['actions']['#type'] = 'actions';
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save configuration'),
+  );
+
+  return $form;
 }
 
 /**
@@ -268,7 +274,7 @@ function nagios_status_page() {
   else {
     // This is not an authorized unique id or uer, so just return this default status.
     $nagios_data = array(
-      'nagios' =>  array(
+      'nagios' => array(
         'DRUPAL' => array(
           'status' => NAGIOS_STATUS_UNKNOWN,
           'type'   => 'state',
@@ -332,15 +338,19 @@ function nagios_status_page() {
                       case UPDATE_NOT_SECURE:
                         $tmp_projstatus = t('NOT SECURE');
                         break;
+
                       case UPDATE_REVOKED:
                         $tmp_projstatus = t('REVOKED');
                         break;
+
                       case UPDATE_NOT_SUPPORTED:
                         $tmp_projstatus = t('NOT SUPPORTED');
                         break;
+
                       case UPDATE_NOT_CURRENT:
                         $tmp_projstatus = t('NOT CURRENT');
                         break;
+
                       default:
                         $tmp_projstatus = $projval['status'];
                     }
@@ -355,7 +365,7 @@ function nagios_status_page() {
               }
             }
             else {
-              watchdog('nagios', t('The core update module was never installed so we cannot use update check features.'));
+              watchdog('nagios', 'The core update module was never installed so we cannot use update check features.');
             }
           }
 
@@ -440,7 +450,7 @@ function nagios_nagios_settings() {
     '#description' => t('Issue a critical alert when cron has not been running for this duration (in minutes). Default is 60 minutes.'),
   );
 
-  if(module_exists('elysia_cron')) {
+  if (module_exists('elysia_cron')) {
     $form[$group]['nagios_elysia_cron_duration'] = array(
       '#type' => 'textfield',
       '#title' => t('Elysia cron duration'),
@@ -473,7 +483,7 @@ function nagios_form_system_modules_alter(&$form, &$form_state, $form_id) {
 
   // We need to abort if the Update module is not installed.
   if (!db_table_exists('cache_update')) {
-    watchdog('nagios', t('The core update module was never installed so we cannot use update check features.'));
+    watchdog('nagios', 'The core update module was never installed so we cannot use update check features.');
     return;
   }
 
@@ -537,13 +547,13 @@ function nagios_form_system_theme_settings_alter(&$form, &$form_state, $form_id)
 
   // We need to abort if the Update module is not installed.
   if (!db_table_exists('cache_update')) {
-    watchdog('nagios', t('The core update module was never installed so we cannot use update check features.'));
+    watchdog('nagios', 'The core update module was never installed so we cannot use update check features.');
     return;
   }
 
   // Grab the name of the theme.
   if (isset($form_state['build_info']['args'][0]) && !empty($form_state['build_info']['args'][0])) {
-      $theme_name = check_plain($form_state['build_info']['args'][0]);
+    $theme_name = check_plain($form_state['build_info']['args'][0]);
 
     $nagios_ignored_themes = variable_get('nagios_ignored_themes', array());
 
@@ -613,7 +623,7 @@ function nagios_nagios() {
  *
  * Calls hook_requirements on all modules to gather info.
  *
- * @return Array
+ * @return array
  */
 function nagios_check_requirements() {
   // Load .install files
@@ -639,7 +649,7 @@ function nagios_check_requirements() {
   $enabled_modules = array();
 
   foreach ($project_data as $project) {
-    foreach($project['includes'] as $key => $val) {
+    foreach ($project['includes'] as $key => $val) {
       if (!isset($nagios_ignored_projects[$key])) {
         $enabled_modules[] = $key;
       }
@@ -730,7 +740,7 @@ function nagios_check_requirements() {
         }
         else {
           cache_set('nagios_update_core_requirement', $requirement);
-         }
+        }
       }
 
       if ($requirement['severity'] >= $min_severity) {
@@ -745,7 +755,7 @@ function nagios_check_requirements() {
     $desc = t('No information.');
   }
   else {
-    $desc = join(', ', $descriptions);
+    $desc = implode(', ', $descriptions);
   }
 
   // Create a status to pass back, and a text description too
@@ -758,6 +768,7 @@ function nagios_check_requirements() {
         'text' => t('No known issues at this time.'),
       );
       break;
+
     case REQUIREMENT_WARNING:
       $data = array(
         'status' => NAGIOS_STATUS_WARNING,
@@ -765,6 +776,7 @@ function nagios_check_requirements() {
         'text' => t('@desc', array('@desc' => $desc)),
       );
       break;
+
     case REQUIREMENT_ERROR:
       $data = array(
         'status' => NAGIOS_STATUS_CRITICAL,
@@ -772,6 +784,7 @@ function nagios_check_requirements() {
         'text' => t('@desc', array('@desc' => $desc)),
       );
       break;
+
     default:
       $data = array(
         'status' => NAGIOS_STATUS_UNKNOWN,
@@ -790,7 +803,7 @@ function nagios_check_requirements() {
 /**
  * Check Drupal {watchdog} table recent entries.
  *
- * @return Array
+ * @return array
  */
 function nagios_check_watchdog() {
   //@TODO Allow LIMIT and OFFSET to be passed in or configurable, or use existing Drupal settings
@@ -820,7 +833,7 @@ function nagios_check_watchdog() {
     $limit_watchdog_timestamp = variable_get('nagios_limit_watchdog_timestamp', FALSE);
     if ($limit_watchdog_timestamp !== FALSE) {
       // Ensure we only get entries that are greater then the timestamp.
-      $query->condition('timestamp', $limit_watchdog_timestamp,'>');
+      $query->condition('timestamp', $limit_watchdog_timestamp, '>');
     }
   }
 
@@ -830,7 +843,7 @@ function nagios_check_watchdog() {
     return array(
       'status' => NAGIOS_STATUS_UNKNOWN,
       'type' => 'state',
-      'text' => t('Unable to SELECT FROM {watchdog}')
+      'text' => t('Unable to SELECT FROM {watchdog}'),
     );
   }
 
@@ -844,7 +857,7 @@ function nagios_check_watchdog() {
     WATCHDOG_ERROR => NAGIOS_STATUS_CRITICAL,
     WATCHDOG_CRITICAL => NAGIOS_STATUS_CRITICAL,
     WATCHDOG_ALERT => NAGIOS_STATUS_CRITICAL,
-    WATCHDOG_EMERGENCY => NAGIOS_STATUS_CRITICAL
+    WATCHDOG_EMERGENCY => NAGIOS_STATUS_CRITICAL,
   );
 
   $severity = NAGIOS_STATUS_OK; //max this across the result set
@@ -876,8 +889,8 @@ function nagios_check_watchdog() {
     $message = "$row[type] $row[message]";
     //@TODO Untangle l(truncate_utf8(_dblog_format_message($dblog), 56, TRUE, TRUE), 'admin/reports/event/'. $dblog->wid, array('html' => TRUE)) and use it here
     $variables = unserialize($row['variables']);
-    if (is_array($variables)){
-      foreach($variables as $key => $value){
+    if (is_array($variables)) {
+      foreach ($variables as $key => $value) {
         $message = str_replace("$key", $value, $message);
       }
     }
@@ -900,7 +913,7 @@ function nagios_check_watchdog() {
   }
 
   // Join all descriptions together into a string.
-  $desc = join(', ', $descriptions);
+  $desc = implode(', ', $descriptions);
 
   //why is an extra array wrapped around here?
   return array(
@@ -908,15 +921,15 @@ function nagios_check_watchdog() {
     'data' => array(
       'status' => $severity,
       'type' => 'state',
-      'text' => t('@desc', array('@desc' => $desc)) //These watchdog message have translations? Really???
-    )
+      'text' => t('@desc', array('@desc' => $desc)), //These watchdog message have translations? Really???
+    ),
   );
 }
 
 /**
  * Check when the Drupal cron system was last invoked.
  *
- * @return Array
+ * @return array
  */
 function nagios_check_cron() {
   $cron_last = variable_get('cron_last', 0);
@@ -946,7 +959,7 @@ function nagios_check_cron() {
 /**
  * Check when the Drupal cron system was last invoked.
  *
- * @return Array
+ * @return array
  */
 function nagios_check_elysia_cron() {
   $result = db_query('select * from elysia_cron where last_aborted <> 0');
@@ -955,11 +968,11 @@ function nagios_check_elysia_cron() {
     $err_crons[] = $blocked_cron;
   }
   $text = '';
-  foreach($err_crons as $cron) {
-    $text .= t('Elysia cron ":cron" last aborted on ":abort"' . PHP_EOL,array(
+  foreach ($err_crons as $cron) {
+    $text .= t('Elysia cron ":cron" last aborted on ":abort"', array(
       ':cron' => $cron->name,
       ':abort' => $cron->last_abort_function,
-    ));
+    ) . PHP_EOL);
   }
   if (!empty($err_crons)) {
     $data = array(
@@ -985,7 +998,7 @@ function nagios_check_elysia_cron() {
 /**
  * Report the number of anonymous sessions.
  *
- * @return Array
+ * @return array
  */
 function nagios_check_session_anon() {
   $interval = REQUEST_TIME - 900; // Last 15 minutes
@@ -1008,7 +1021,7 @@ function nagios_check_session_anon() {
 /**
  * Report the number of logged in sessions.
  *
- * @return Array
+ * @return array
  */
 function nagios_check_session_auth() {
   $interval = REQUEST_TIME - 900; // Last 15 minutes
@@ -1030,7 +1043,7 @@ function nagios_check_session_auth() {
 /**
  * Report the number of published nodes.
  *
- * @return Array
+ * @return array
  */
 function nagios_check_nodes() {
   // Include number of active nodes in the report
@@ -1050,7 +1063,7 @@ function nagios_check_nodes() {
 /**
  * Report the number of active user accounts.
  *
- * @return Array
+ * @return array
  */
 function nagios_check_users() {
   // Include number of active users in the report
@@ -1070,7 +1083,7 @@ function nagios_check_users() {
 /**
  * Report the number of enabled modules.
  *
- * @return Array
+ * @return array
  */
 function nagios_check_modules() {
   $count = (int) db_query("SELECT COUNT(*) FROM {system} WHERE status = :status AND type = :type", array(':status' => 1, ':type' => 'module'))->fetchField();
@@ -1108,7 +1121,7 @@ function nagios_nagios_check($function) {
 /**
  * Report the number of enabled themes.
  *
- * @return Array
+ * @return array
  */
 function nagios_check_themes() {
   $count = (int) db_query("SELECT COUNT(*) FROM {system} WHERE status = :status AND type = :type", array(':status' => 1, ':type' => 'theme'))->fetchField();
@@ -1261,7 +1274,7 @@ function _nagios_update_get_available($refresh = FALSE) {
       return update_get_available($refresh);
     }
     else {
-      watchdog('nagios', t('The core update module was never installed so we cannot use update check features.'));
+      watchdog('nagios', 'The core update module was never installed so we cannot use update check features.');
     }
   }
   else {
@@ -1281,10 +1294,17 @@ function _nagios_update_calculate_project_data($available = array()) {
       return update_calculate_project_data($available);
     }
     else {
-      watchdog('nagios', t('The core update module was never installed so we cannot use update check features.'));
+      watchdog('nagios', 'The core update module was never installed so we cannot use update check features.');
     }
   }
   else {
     return update_calculate_project_data($available);
   }
+}
+
+/**
+ * Backdrop handler for configuration management
+ */
+function nagios_admin_settings_submit($form, &$form_state) {
+  drupal_set_message(t('Nagios configuration saved'));
 }

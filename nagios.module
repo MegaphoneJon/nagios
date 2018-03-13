@@ -239,7 +239,6 @@ function nagios_settings($form, &$form_state) {
 function nagios_status_page() {
   // Make sure this page is not cached.
   backdrop_page_is_cacheable(FALSE);
-
   $config = config('nagios.settings');
 
   $args = func_get_args();
@@ -407,7 +406,7 @@ function nagios_invoke_all($hook = 'nagios') {
     if ($hook == 'nagios' && !$config->get('enable_' . $module)) {
       continue;
     }
-    $function = $module . '_' . $hook;
+    $function = 'nagios_' . $module . '_' . $hook;
     $result = call_user_func_array($function, $args);
     $return[$module] = $result;
   }

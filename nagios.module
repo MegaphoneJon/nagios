@@ -52,7 +52,7 @@ function nagios_menu() {
     'type' => MENU_NORMAL_ITEM,
     'title' => 'Nagios monitoring',
     'description' => 'Settings for Nagios monitoring',
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'backdrop_get_form',
     'page arguments' => array('nagios_settings'),
     'access arguments' => array('administer site configuration'),
   );
@@ -72,7 +72,7 @@ function nagios_menu() {
 /**
  * Implements hook_menu_site_status_alter().
  *
- * Make the status page available when Drupal is in
+ * Make the status page available when Backdrop is in
  * maintenance mode.
  */
 function nagios_menu_site_status_alter(&$menu_site_status, $path) {
@@ -127,7 +127,7 @@ function nagios_settings($form, &$form_state) {
   $form['nagios_status_page']['nagios_page_path'] = array(
     '#type' => 'textfield',
     '#title' => t('Nagios page path'),
-    '#description' => t('Enter the path for the Nagios HTTP status page. It must be a valid Drupal path.'),
+    '#description' => t('Enter the path for the Nagios HTTP status page. It must be a valid Backdrop path.'),
     '#default_value' => $config->get('page_path'),
   );
   $form['nagios_status_page']['nagios_page_callback'] = array(
@@ -238,7 +238,7 @@ function nagios_settings($form, &$form_state) {
  */
 function nagios_status_page() {
   // Make sure this page is not cached.
-  drupal_page_is_cacheable(FALSE);
+  backdrop_page_is_cacheable(FALSE);
 
   $config = config('nagios.settings');
 
@@ -626,7 +626,7 @@ function nagios_nagios() {
 }
 
 /**
- * Check all Drupal requirements are satisfied.
+ * Check all Backdrop requirements are satisfied.
  *
  * Calls hook_requirements on all modules to gather info.
  *
@@ -637,7 +637,7 @@ function nagios_check_requirements() {
   include_once DRUPAL_ROOT . '/' . './includes/install.inc';
   module_load_include('inc', 'update', 'update.compare');
 
-  drupal_load_updates();
+  backdrop_load_updates();
 
   $config = config('nagios.settings');
   // Get the run-time requirements and status information.
@@ -679,7 +679,7 @@ function nagios_check_requirements() {
   // Cycle through enabled modules for requirements checks.
   $reqs = array();
   $module_data = array();
-  $core_modules = array_keys($project_data['drupal']['includes']);
+  $core_modules = array_keys($project_data['backdrop']['includes']);
   foreach ($enabled_modules as $module_name) {
 
     $requirements_data = module_invoke($module_name, 'requirements', 'runtime');
@@ -694,7 +694,7 @@ function nagios_check_requirements() {
         // Now we need to loop through all modules again to reset 'update_contrib'.
         foreach ($enabled_modules as $module_name) {
           // Double check we're not processing a core module.
-          if (!in_array($module_name, array_keys($project_data['drupal']['includes']))) {
+          if (!in_array($module_name, array_keys($project_data['backdrop']['includes']))) {
             // If the module is a sub-module (eg views_ui) then we need to set the status key.
             // Without this,  _update_requirement_check() will return severity = 2.
             if (isset($data[$module_name]['status']) && is_numeric($data[$module_name]['status'])) {
@@ -809,14 +809,14 @@ function nagios_check_requirements() {
 }
 
 /**
- * Check Drupal {watchdog} table recent entries.
+ * Check Backdrop {watchdog} table recent entries.
  *
  * @return array
  */
 function nagios_check_watchdog() {
-  //@TODO Allow LIMIT and OFFSET to be passed in or configurable, or use existing Drupal settings
+  //@TODO Allow LIMIT and OFFSET to be passed in or configurable, or use existing Backdrop settings
   //@TODO Manually count the rows on admin/reports/dblog and match that if nothing else
-  //@TODO Do this more the Drupal Way, whatever that might be
+  //@TODO Do this more the Backdrop Way, whatever that might be
   //@TODO Allow multi-value 'type' and/or 'severity' inputs for filtering
   //@TODO Allow datetime ranges
 
@@ -936,7 +936,7 @@ function nagios_check_watchdog() {
 }
 
 /**
- * Check when the Drupal cron system was last invoked.
+ * Check when the Backdrop cron system was last invoked.
  *
  * @return array
  */
@@ -967,7 +967,7 @@ function nagios_check_cron() {
 }
 
 /**
- * Check when the Drupal cron system was last invoked.
+ * Check when the Backdrop cron system was last invoked.
  *
  * @return array
  */
@@ -1012,8 +1012,6 @@ function nagios_check_elysia_cron() {
  */
 function nagios_check_session_anon() {
   $interval = REQUEST_TIME - 900; // Last 15 minutes
-  // sess_count() no longer exists in Drupal 7. Replace with a custom query.
-  //$count = (int) sess_count($interval, TRUE);
   $count = (int) db_query("SELECT COUNT(*) FROM {sessions} WHERE timestamp >= :timestamp AND uid = :uid", array(':timestamp' => $interval, ':uid' => 0))->fetchField();
 
   $data = array(
@@ -1184,13 +1182,13 @@ function theme_nagios_modules_fieldset($variables) {
   $rows = array();
   // Iterate through all of the modules to Determine the available operations.
   $children = element_children($form);
-  $operations = drupal_map_assoc(array('help', 'permissions', 'configure'));
+  $operations = backdrop_map_assoc(array('help', 'permissions', 'configure'));
   foreach ($children as $key) {
     $links = array_filter(array_keys($form[$key]['links']), function ($var) {
       return $var && $var[0] != '#';
     });
     if ($links) {
-      $operations += drupal_map_assoc($links);
+      $operations += backdrop_map_assoc($links);
     }
   }
   // Iterate through all the modules.
@@ -1199,15 +1197,15 @@ function theme_nagios_modules_fieldset($variables) {
     $module = $form[$key];
     $row = array();
     unset($module['enable']['#title']);
-    $row[] = array('class' => array('checkbox'), 'data' => drupal_render($module['enable']));
+    $row[] = array('class' => array('checkbox'), 'data' => backdrop_render($module['enable']));
     $label = '<label';
     if (isset($module['enable']['#id'])) {
       $label .= ' for="' . $module['enable']['#id'] . '"';
     }
-    $row[] = $label . '><strong>' . drupal_render($module['name']) . '</strong></label>';
-    $row[] = drupal_render($module['version']);
+    $row[] = $label . '><strong>' . backdrop_render($module['name']) . '</strong></label>';
+    $row[] = backdrop_render($module['version']);
     // Add the description, along with any modules it requires.
-    $description = drupal_render($module['description']);
+    $description = backdrop_render($module['description']);
     if ($module['#requires']) {
       $description .= '<div class="admin-requirements">' . t('Requires: !module-list', array('!module-list' => implode(', ', $module['#requires']))) . '</div>';
     }
@@ -1217,7 +1215,7 @@ function theme_nagios_modules_fieldset($variables) {
     $row[] = array('data' => $description, 'class' => array('description'));
     // Display links (such as help or permissions) in their own columns.
     foreach ($operations as $key) {
-      $row[] = array('data' => drupal_render($module['links'][$key]), 'class' => array($key));
+      $row[] = array('data' => backdrop_render($module['links'][$key]), 'class' => array($key));
     }
     $form['#header'][4]['colspan'] = count($operations);
     $rows[] = $row;
@@ -1254,7 +1252,7 @@ function _nagios_update_get_projects() {
     // This code is lifted directly from the core update module to avoid a dependency.
     // Note: anything cache related has been pulled out.
     // https://api.drupal.org/api/drupal/modules!update!update.compare.inc/function/update_get_projects/7.x
-    $projects = &drupal_static(__FUNCTION__, array());
+    $projects = &backdrop_static(__FUNCTION__, array());
     if (empty($projects)) {
       // Still empty, so we have to rebuild the cache.
       $module_data = system_rebuild_module_data();
@@ -1266,7 +1264,7 @@ function _nagios_update_get_projects() {
         _update_process_info_list($projects, $theme_data, 'theme', FALSE);
       }
       // Allow other modules to alter projects before fetching and comparing.
-      drupal_alter('update_projects', $projects);
+      backdrop_alter('update_projects', $projects);
     }
     return $projects;
   }
@@ -1280,7 +1278,7 @@ function _nagios_update_get_available($refresh = FALSE) {
   if (!module_exists('update')) {
     // update_get_available() relies on the update module to have been installed, not just the code to be available
     if (db_table_exists('cache_update')) {
-      drupal_load('module', 'update');
+      backdrop_load('module', 'update');
       return update_get_available($refresh);
     }
     else {
@@ -1316,7 +1314,6 @@ function _nagios_update_calculate_project_data($available = array()) {
  * Backdrop handler for configuration management
  */
 function nagios_settings_submit($form, &$form_state) {
-  dsm($form_state['values']);
   $values = $form_state['values'];
   $config = config('nagios.settings');
   $config->set('ua', $values['nagios_ua']);
@@ -1344,6 +1341,16 @@ function nagios_settings_submit($form, &$form_state) {
   $config->set('cron_duration', (int) $values['nagios_cron_duration']);
   $config->set('min_report_severity', $values['nagios_cron_report_severity']);
   $config->save();
+  backdrop_set_message(t('Nagios configuration saved.'));
+}
 
-  drupal_set_message(t('Nagios configuration saved.'));
+/**
+ * Implements hook_config_info.
+ */
+function nagios_config_info() {
+  $prefixes['nagios.settings'] = array(
+    'label' => t('Nagios'),
+    'group' => t('Monitoring'),
+  );
+  return $prefixes;
 }

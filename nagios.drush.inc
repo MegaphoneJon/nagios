@@ -225,7 +225,7 @@ function nagios_updates($data) {
         }
       }
 
-      $row_key = drupal_strtolower($project['name']);
+      $row_key = backdrop_strtolower($project['name']);
       if (!isset($updates[$row_key])) {
         $updates[$row_key] = array();
       }

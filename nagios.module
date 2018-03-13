@@ -690,7 +690,7 @@ function nagios_check_requirements() {
     }
   }
   // Now let's check for updates.
-  foreach ($enabled_modules as $module_name) {
+  foreach ($data as $module_name => $dontcare) {
     // Check if this module needs an update.
     // Double check we're not processing a core module.
     if (!in_array($module_name, array_keys($project_data['backdrop']['includes']))) {

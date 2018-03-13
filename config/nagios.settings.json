@@ -19,9 +19,9 @@
     "func_session_anon": true,
     "func_session_auth": true,
     "func_nodes": true,
+    "func_users": true,
     "func_modules": true,
     "func_themes": true,
     "cron_duration": 60,
-    "min_report_severity": null,
-    "func_users": true
+    "min_report_severity": 1
 }

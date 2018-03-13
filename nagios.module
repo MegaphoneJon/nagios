@@ -537,7 +537,7 @@ function nagios_system_modules_form_submit(&$form, &$form_state) {
       }
     }
   }
-  variable_set('nagios_ignored_modules', $nagios_ignored_modules);
+  config_set('nagios.settings', 'ignored_modules', $nagios_ignored_modules);
 }
 
 /**
@@ -604,7 +604,7 @@ function nagios_system_theme_settings_form_submit(&$form, &$form_state) {
       unset($nagios_ignored_themes[$theme_name]);
     }
 
-    variable_set('nagios_ignored_themes', $nagios_ignored_themes);
+    config_set('nagios.settings', 'ignored_themes', $nagios_ignored_themes);
   }
 }
 
@@ -877,7 +877,7 @@ function nagios_check_watchdog() {
   while ($row = $result->fetchAssoc()) {
     // Set timestamp of the first watchdog error for use when restricting logs to only new entries.
     if ($count == 0) {
-      $limit_watchdog_timestamp = variable_set('nagios_limit_watchdog_timestamp', $row['timestamp']);
+      $limit_watchdog_timestamp = config_set('nagios.settings', 'nagios_limit_watchdog_timestamp', $row['timestamp']);
       $count++;
     }
 
@@ -1329,23 +1329,23 @@ function nagios_settings_submit($form, &$form_state) {
   $config->set('enable_nagios', (bool) $values['nagios_enable_nagios']);
   $config->set('limit_watchdog_display', (bool) $values['limit_watchdog_display']);
   $config->set('limit_watchdog_results', (int) $values['limit_watchdog_results']);
-  $config->set('func_requirements', (bool) $values['nagios_func_requirements']);
-  $config->set('func_watchdog', (bool) $values['nagios_func_watchdog']);
-  $config->set('func_cron', (bool) $values['nagios_func_cron']);
-  $config->set('func_session_anon', (bool) $values['nagios_func_session_anon']);
-  $config->set('func_session_auth', (bool) $values['nagios_func_session_auth']);
-  $config->set('func_nodes', (bool) $values['nagios_func_nodes']);
-  $config->set('func_users', (bool) $values['nagios_func_users']);
-  $config->set('func_modules', (bool) $values['nagios_func_modules']);
-  $config->set('func_themes', (bool) $values['nagios_func_themes']);
+  $config->set('func_requirements', (bool) $values['func_requirements']);
+  $config->set('func_watchdog', (bool) $values['func_watchdog']);
+  $config->set('func_cron', (bool) $values['func_cron']);
+  $config->set('func_session_anon', (bool) $values['func_session_anon']);
+  $config->set('func_session_auth', (bool) $values['func_session_auth']);
+  $config->set('func_nodes', (bool) $values['func_nodes']);
+  $config->set('func_users', (bool) $values['func_users']);
+  $config->set('func_modules', (bool) $values['func_modules']);
+  $config->set('func_themes', (bool) $values['func_themes']);
   $config->set('cron_duration', (int) $values['nagios_cron_duration']);
-  $config->set('min_report_severity', $values['nagios_cron_report_severity']);
+  $config->set('min_report_severity', (int) $values['nagios_min_report_severity']);
   $config->save();
   backdrop_set_message(t('Nagios configuration saved.'));
 }
 
 /**
- * Implements hook_config_info.
+ * Implements hook_config_info().
  */
 function nagios_config_info() {
   $prefixes['nagios.settings'] = array(

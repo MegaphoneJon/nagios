@@ -225,7 +225,7 @@ function nagios_settings($form, &$form_state) {
   $form['actions']['#type'] = 'actions';
   $form['actions']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Save configuration'),
+    '#value' => t('Save Configuration'),
   );
 
   return $form;
@@ -1305,6 +1305,35 @@ function _nagios_update_calculate_project_data($available = array()) {
 /**
  * Backdrop handler for configuration management
  */
-function nagios_admin_settings_submit($form, &$form_state) {
-  drupal_set_message(t('Nagios configuration saved'));
+function nagios_settings_submit($form, &$form_state) {
+  dsm($form_state['values']);
+  $values = $form_state['values'];
+  $config = config('nagios.settings');
+  $config->set('ua', $values['nagios_ua']);
+  $config->set('show_outdated_names', (bool) $values['nagios_show_outdated_names']);
+  $config->set('enable_status_page', (bool) $values['nagios_enable_status_page']);
+  $config->set('page_path', $values['nagios_page_path']);
+  $config->set('page_callback', $values['nagios_page_callback']);
+  $config->set('enable_status_page_get', (bool) $values['nagios_enable_status_page_get']);
+  $config->set('status_ok_value', (int) $values['nagios_status_ok_value']);
+  $config->set('status_warning_value', (int) $values['nagios_status_warning_value']);
+  $config->set('status_critical_value', (int) $values['nagios_status_critical_value']);
+  $config->set('status_unknown_value', (int) $values['nagios_status_unknown_value']);
+  $config->set('enable_nagios', (bool) $values['nagios_enable_nagios']);
+  $config->set('limit_watchdog_display', (bool) $values['limit_watchdog_display']);
+  $config->set('limit_watchdog_results', (int) $values['limit_watchdog_results']);
+  $config->set('func_requirements', (bool) $values['nagios_func_requirements']);
+  $config->set('func_watchdog', (bool) $values['nagios_func_watchdog']);
+  $config->set('func_cron', (bool) $values['nagios_func_cron']);
+  $config->set('func_session_anon', (bool) $values['nagios_func_session_anon']);
+  $config->set('func_session_auth', (bool) $values['nagios_func_session_auth']);
+  $config->set('func_nodes', (bool) $values['nagios_func_nodes']);
+  $config->set('func_users', (bool) $values['nagios_func_users']);
+  $config->set('func_modules', (bool) $values['nagios_func_modules']);
+  $config->set('func_themes', (bool) $values['nagios_func_themes']);
+  $config->set('cron_duration', (int) $values['nagios_cron_duration']);
+  $config->set('min_report_severity', $values['nagios_cron_report_severity']);
+  $config->save();
+
+  drupal_set_message(t('Nagios configuration saved.'));
 }

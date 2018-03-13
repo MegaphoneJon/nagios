@@ -633,7 +633,7 @@ function nagios_nagios() {
  */
 function nagios_check_requirements() {
   // Load .install files
-  include_once DRUPAL_ROOT . '/' . './includes/install.inc';
+  include_once DRUPAL_ROOT . '/' . './core/includes/install.inc';
   module_load_include('inc', 'update', 'update.compare');
 
   backdrop_load_updates();

@@ -651,6 +651,8 @@ function nagios_check_requirements() {
   $project_data = _nagios_update_get_projects();
   $nagios_ignored_modules = $config->get('ignored_modules');
   $nagios_ignored_themes = $config->get('ignored_themes');
+  $nagios_ignored_modules = isset($nagios_ignored_modules) ? $nagios_ignored_modules : array();
+  $nagios_ignored_themes = isset($nagios_ignored_themes) ? $nagios_ignored_themes : array();
   $nagios_ignored_projects = $nagios_ignored_modules + $nagios_ignored_themes;
 
   $enabled_modules = array();
@@ -682,45 +684,40 @@ function nagios_check_requirements() {
   foreach ($enabled_modules as $module_name) {
 
     $requirements_data = module_invoke($module_name, 'requirements', 'runtime');
+    $requirements_data = isset($requirements_data) ? $requirements_data : array();
     if (count($requirements_data)) {
-      // Intercept the Update Status module to respect our Ignore behaviour.
-      // Note, if $data is empty then there's no available update data and Update Status will handle that for us.
-      if ($module_name == 'update' && !empty($data)) {
-        // Don't want the 'update_contrib' section reported by 'update' module,
-        // because that one contains *ALL* modules, even the ones ignored by
-        // nagios module.
-        unset($requirements_data['update_contrib']);
-        // Now we need to loop through all modules again to reset 'update_contrib'.
-        foreach ($enabled_modules as $module_name) {
-          // Double check we're not processing a core module.
-          if (!in_array($module_name, array_keys($project_data['backdrop']['includes']))) {
-            // If the module is a sub-module (eg views_ui) then we need to set the status key.
-            // Without this,  _update_requirement_check() will return severity = 2.
-            if (isset($data[$module_name]['status']) && is_numeric($data[$module_name]['status'])) {
-              // Within this clause, only contrib modules are processed. Get update
-              // status for the current one, and store data as it would be left
-              // by update_requirements() function.
-              $contrib_req = _update_requirement_check($data[$module_name], 'contrib');
-              $contrib_req['name'] = $module_name;
-              // If module up to date, set a severity of -1 for sorting purposes.
-              if (!isset($contrib_req['severity'])) {
-                $contrib_req['severity'] = -1;
-              }
-              // Build an array of required contrib updates.
-              if ($contrib_req) {
-                $module_data[] = $contrib_req;
-              }
-            }
-          }
-        }
-        // Sort our finished array by severity so we can set Nagios status accordingly.
-        usort($module_data, '_nagios_updates_sort_by_severity');
-        // Add the 'worst case' to requirements.
-        $requirements_data['update_contrib'] = array_pop($module_data);
-      }
       $reqs += $requirements_data;
     }
   }
+  // Now let's check for updates.
+  foreach ($enabled_modules as $module_name) {
+    // Check if this module needs an update.
+    // Double check we're not processing a core module.
+    if (!in_array($module_name, array_keys($project_data['backdrop']['includes']))) {
+      // If the module is a sub-module (eg views_ui) then we need to set the status key.
+      // Without this,  _update_requirement_check() will return severity = 2.
+      if (isset($data[$module_name]['status']) && is_numeric($data[$module_name]['status'])) {
+        // Within this clause, only contrib modules are processed. Get update
+        // status for the current one, and store data as it would be left
+        // by update_requirements() function.
+        $contrib_req = _update_requirement_check($data[$module_name], 'contrib');
+        $contrib_req['name'] = $module_name;
+        $contrib_req['title'] = $module_name;
+        // If module up to date, set a severity of -1 for sorting purposes.
+        if (!isset($contrib_req['severity'])) {
+          $contrib_req['severity'] = -1;
+        }
+        // Build an array of required contrib updates.
+        if ($contrib_req) {
+          $module_data[] = $contrib_req;
+        }
+      }
+    }
+  }
+  // Sort our finished array by severity so we can set Nagios status accordingly.
+  usort($module_data, '_nagios_updates_sort_by_severity');
+  // Add the 'worst case' to requirements.
+  $reqs += $module_data;
 
   // Check the requirements as to the most severe status
   $descriptions = array();

@@ -404,7 +404,7 @@ function nagios_invoke_all($hook = 'nagios') {
   foreach (module_implements($hook) as $module) {
     // if we're running the checks, see if the checks for that module
     // are enabled, otherwise just continue
-    if ($hook == 'nagios' && !$config->get('enable_' . $module, 0)) {
+    if ($hook == 'nagios' && !$config->get('enable_' . $module)) {
       continue;
     }
     $function = $module . '_' . $hook;

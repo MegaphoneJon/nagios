@@ -1,28 +1,28 @@
 
 Copyright 2009 Khalid Baheyeldin http://2bits.com
 Drush commands originally authored by Josh Waihi http://joshwaihi.com
-Maintained by Code Enigma https://www.codeenigma.com
-
+Ported to Backdrop by Jon Goldberg https://megaphonetech.com
+Backdrop port is currently maintained by Jon Goldberg
 
 Description
 -----------
-The Nagios monitoring module intergrates your Drupal site with with the Nagios.
+The Nagios monitoring module integrates your Drupal/Backdrop site with Nagios.
 
 Nagios is a network and host monitoring application. For more information about
 Nagios, see http://www.nagios.org
 
 The module reports to Nagios that the site is up and running normally, including:
 - PHP is parsing scripts and modules correctly
-- The database is accessible from Drupal
+- The database is accessible from Drupal/Backdrop
 - Whether there are configuration issues with the site, such as:
-  * pending Drupal version update
-  * pending Drupal module updates
+  * pending Drupal/Backdrop version update
+  * pending Drupal/Backdrop module updates
   * unwritable 'files' directory
   * Pending updates to the database schema
   * Cron not running for a specified period
 
 If you already use Nagios in your organization to monitor your infrastructure, then
-this module will be useful for you. If you only run one or two Drupal sites, Nagios
+this module will be useful for you. If you only run one or two Drupal/Backdrop sites, Nagios
 may be overkill for this task.
 
 There are also drush commands to allow you to execute Nagios plugins on remote
@@ -45,24 +45,11 @@ For additional security, you may also put the Nagios module status page behind h
 authentication, which is recommended. If you do this, we recommend it is done via a 
 HTTPS connection. While plain HTTP will work, plaintext credentials are never advisable.
 
-If you can run NRPE then it is recommended you disable Nagios checks via Drupal and only
+If you can run NRPE then it is recommended you disable Nagios checks via Drupal/Backdrop and only
 use NRPE checks via drush instead as a security enhancement. This is the best method.
 
 
-Installation
-------------
-To install this module, do the following:
-
-1. Extract the tarball that you downloaded from Drupal.org
-
-2. Upload the nagios directory that you extracted to your sites/all/modules
-   directory.
-   
-3. Optional, to enable Nagios NRPE download and read the documentation at
-   http://nagios.sourceforge.net/docs/nrpe/NRPE.pdf
-
-
-Configuration for Drupal
+Configuration for Drupal/Backdrop
 ------------------------
 To enable this module do the following:
 
@@ -214,10 +201,6 @@ For a real life example on how to use this API, check the performance.module in 
 at http://drupal.org/project/devel
 
 
-Bugs/Features/Patches:
-----------------------
-If you want to report bugs, feature requests, or submit a patch, please do so
-at the project page on the Drupal web site.
 
 Author
 ------
@@ -228,4 +211,11 @@ a thank you note, then use the Feedback/Contact page at the URL above.
 
 The author can also be contacted for paid customizations of this
 and other modules.
+
+
+License
+-------
+
+This project is GPL v2 software. See the LICENSE.txt file in this directory for
+complete text.
 
